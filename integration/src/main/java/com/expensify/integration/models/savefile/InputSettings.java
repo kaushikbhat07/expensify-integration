@@ -1,4 +1,4 @@
-package com.expensify.integration.models;
+package com.expensify.integration.models.savefile;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
