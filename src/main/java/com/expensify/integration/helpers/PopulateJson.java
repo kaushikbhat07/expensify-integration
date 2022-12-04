@@ -8,6 +8,9 @@ import com.expensify.integration.json.savereport.OnReceive;
 import com.expensify.integration.json.savereport.OutputSettings;
 import com.expensify.integration.json.savereport.SaveReportJson;
 
+import java.time.LocalDateTime;
+import java.time.Month;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
 
@@ -30,9 +33,16 @@ public class PopulateJson {
 
         OnReceive onReceive = new OnReceive(new ArrayList<>(Collections.singleton("returnRandomFileName")));
 
+        // Get today's date
+        DateTimeFormatter dtf = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+        LocalDateTime now = LocalDateTime.now();
+
+        // Get start date
+        LocalDateTime startDate = LocalDateTime.of(2022, Month.NOVEMBER, 1, 0, 0);
+
         InputSettings inputSettings = new InputSettings("combinedReportData",
                 "OPEN,SUBMITTED,APPROVED,REIMBURSED,ARCHIVED",
-                new Filters("2022-11-01", "2022-12-04", "Expensify Export"));
+                new Filters(dtf.format(startDate), dtf.format(now), "Expensify Export"));
 
         OutputSettings outputSettings = new OutputSettings("csv");
 
