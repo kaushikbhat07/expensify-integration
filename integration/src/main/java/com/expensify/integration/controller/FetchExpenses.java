@@ -13,12 +13,15 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.scheduling.annotation.EnableScheduling;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Controller;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
@@ -33,6 +36,8 @@ import java.nio.file.Files;
 import java.util.List;
 
 @Controller
+@Configuration
+@EnableScheduling
 public class FetchExpenses {
     Logger logger = LoggerFactory.getLogger(this.getClass());
 
@@ -55,6 +60,7 @@ public class FetchExpenses {
         this.expenseService = expenseService;
     }
 
+    @Scheduled(fixedRate = 10000)
     public void getExpenses() throws URISyntaxException, IOException, FileNotFoundException {
         // Read template file
         File resource = new ClassPathResource(templatePath).getFile();
