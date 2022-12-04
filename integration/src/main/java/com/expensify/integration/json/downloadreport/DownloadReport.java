@@ -1,6 +1,6 @@
-package com.expensify.integration.models.downloadfile;
+package com.expensify.integration.json.downloadreport;
 
-import com.expensify.integration.models.savefile.Credentials;
+import com.expensify.integration.json.savereport.Credentials;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 
