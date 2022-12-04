@@ -4,8 +4,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
 
+/**
+ * Helper generic class to convert Java Object to a JSON String.
+ * @param <T> Java Object
+ */
 public class ToJson<T> {
-
     public String toJson(T object) {
         ObjectMapper Obj = new ObjectMapper();
         String jsonStr = null;

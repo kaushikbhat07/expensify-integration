@@ -8,6 +8,9 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 import java.util.Optional;
 
+/**
+ * Service class to communicate with the Database Repository.
+ */
 @Service
 public class ExpenseService {
     private final ExpenseRepository expenseRepository;

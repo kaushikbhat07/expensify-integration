@@ -11,6 +11,9 @@ import com.expensify.integration.json.savereport.SaveReportJson;
 import java.util.ArrayList;
 import java.util.Collections;
 
+/**
+ * Helper class to populate Java Objects to be used for HTTP requests.
+ */
 public class PopulateJson {
 
     private static String partnerUserID;

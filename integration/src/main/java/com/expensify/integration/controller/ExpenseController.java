@@ -58,6 +58,12 @@ public class ExpenseController {
         this.expenseService = expenseService;
     }
 
+    /**
+     * A scheduled CRON that runs every 10 seconds.
+     * 1) Send request to generate the expense report at partner service.
+     * 2) Download the expense report from partner service.
+     * 3) Persist the expenses to the database.
+     */
     @Scheduled(fixedRate = 10000)
     public void retrieveAndSaveExpenses() throws Exception {
         // Read template file
@@ -105,6 +111,10 @@ public class ExpenseController {
         this.saveExpenseList(expenseList);
     }
 
+    /**
+     * Iterate and save each expense to the Database
+     * @param expenseList Expenses array
+     */
     private void saveExpenseList(List<Report> expenseList) {
         for (Report expense : expenseList) {
             Expense expenses = this.convertExpenseToDatabaseObject(expense);
@@ -112,10 +122,22 @@ public class ExpenseController {
         }
     }
 
+    /**
+     * Converts CSV data returned by partner service to a Java ArrayList.
+     * @param expenseData CSV data
+     * @return List<Report>
+     */
     private List<Report> convertCsvToJavaObject(String expenseData) {
         return new CsvToBeanBuilder(new StringReader(expenseData)).withType(Report.class).build().parse();
     }
 
+    /**
+     * Create JSON request body for the POST request that generates the report at the partner service.
+     * @param template Template expected by the partner service
+     * @param json JSON data
+     * @param baseUrl URL
+     * @return ResponseEntity
+     */
     private ResponseEntity<String> createExpenseReportAtPartner(String template, String json, String baseUrl)
             throws Exception {
         HttpHeaders headers = new HttpHeaders();
@@ -129,6 +151,12 @@ public class ExpenseController {
         return this.sendPostRequest(headers, requestBody, baseUrl);
     }
 
+    /**
+     * Create JSON request body for the POST request that downloads the report from partner service.
+     * @param json JSON data
+     * @param baseUrl URL
+     * @return ResponseEntity
+     */
     private ResponseEntity<String> downloadExpenseReportFromPartner(String json, String baseUrl) throws Exception {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
@@ -140,6 +168,16 @@ public class ExpenseController {
         return this.sendPostRequest(headers, requestBody, baseUrl);
     }
 
+    /**
+     * Sends HTTP POST request using RestTemplate
+     * @param headers HTTP headers
+     * @param requestBody Request body
+     * @param baseUrl URL
+     * @return ResponseEntity
+     * @throws FileNotFoundException If the report filename provided is incorrect
+     * @throws AuthenticationException If the authentication parameters are incorrect
+     * @throws Exception General Exception for other HTTP response codes
+     */
     private ResponseEntity<String> sendPostRequest(HttpHeaders headers, MultiValueMap<String, String> requestBody,
             String baseUrl) throws Exception {
         // POST request to save report
@@ -164,7 +202,12 @@ public class ExpenseController {
         return response;
     }
 
-    Expense convertExpenseToDatabaseObject(Report expense) {
+    /**
+     * Converts Java Object to a Database Object
+     * @param expense Expense java object
+     * @return Database object
+     */
+    private Expense convertExpenseToDatabaseObject(Report expense) {
         Expense expenses = new Expense();
         expenses.setId(expense.getTransactionId());
         expenses.setExpenseNumber(expense.getExpenseNumber());
