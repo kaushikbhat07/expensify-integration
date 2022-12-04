@@ -1,4 +1,4 @@
-package com.expensify.integration.models.report;
+package com.expensify.integration.csv;
 
 import com.opencsv.bean.CsvBindByName;
 import lombok.Data;
@@ -9,7 +9,7 @@ public class Report {
     private String merchant;
 
     @CsvBindByName(column = "Original Amount")
-    private String originalAmount;
+    private double originalAmount;
 
     @CsvBindByName(column = "Category")
     String category;
@@ -21,17 +21,17 @@ public class Report {
     private String currency;
 
     @CsvBindByName(column = "Invoice ID")
-    private String invoiceId;
+    private long invoiceId;
 
     @CsvBindByName(column = "Invoice URL")
     private String invoiceUrl;
 
     @CsvBindByName(column = "Transaction ID")
-    private String transactionId;
+    private long transactionId;
 
     @CsvBindByName(column = "Report number")
-    private String reportNumber;
+    private long reportNumber;
 
     @CsvBindByName(column = "Expense number")
-    private String expenseNumber;
+    private long expenseNumber;
 }

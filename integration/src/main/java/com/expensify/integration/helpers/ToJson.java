@@ -1,4 +1,4 @@
-package com.expensify.integration.services;
+package com.expensify.integration.helpers;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -6,7 +6,6 @@ import org.springframework.stereotype.Service;
 
 import java.io.IOException;
 
-@Service
 public class ToJson<T> {
 
     public String toJson(T object) {

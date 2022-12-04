@@ -1,4 +1,4 @@
-package com.expensify.integration.models.savefile;
+package com.expensify.integration.json.savereport;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -7,6 +7,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 @Data
-public class OutputSettings {
-    String fileExtension;
+public class Credentials {
+    String partnerUserID;
+    String partnerUserSecret;
 }
