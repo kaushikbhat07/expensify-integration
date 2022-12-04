@@ -1,13 +1,14 @@
 package com.expensify.integration.controller;
 
-import com.expensify.integration.exceptions.FileNotFoundException;
-import com.expensify.integration.models.Expense;
-import com.expensify.integration.json.downloadreport.DownloadReportJson;
 import com.expensify.integration.csv.Report;
-import com.expensify.integration.json.savereport.SaveReportJson;
-import com.expensify.integration.services.ExpenseService;
+import com.expensify.integration.exceptions.AuthenticationException;
+import com.expensify.integration.exceptions.FileNotFoundException;
 import com.expensify.integration.helpers.PopulateJson;
 import com.expensify.integration.helpers.ToJson;
+import com.expensify.integration.json.downloadreport.DownloadReportJson;
+import com.expensify.integration.json.savereport.SaveReportJson;
+import com.expensify.integration.models.Expense;
+import com.expensify.integration.services.ExpenseService;
 import com.opencsv.bean.CsvToBeanBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -17,7 +18,6 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.scheduling.annotation.EnableScheduling;
@@ -28,17 +28,15 @@ import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
 
 import java.io.File;
-import java.io.IOException;
 import java.io.StringReader;
 import java.net.URI;
-import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.util.List;
 
 @Controller
 @Configuration
 @EnableScheduling
-public class FetchExpenses {
+public class ExpenseController {
     Logger logger = LoggerFactory.getLogger(this.getClass());
 
     @Value("${expensify.baseUrl}")
@@ -56,12 +54,12 @@ public class FetchExpenses {
     private final ExpenseService expenseService;
 
     @Autowired
-    public FetchExpenses(ExpenseService expenseService) {
+    public ExpenseController(ExpenseService expenseService) {
         this.expenseService = expenseService;
     }
 
     @Scheduled(fixedRate = 10000)
-    public void getExpenses() throws URISyntaxException, IOException, FileNotFoundException {
+    public void retrieveAndSaveExpenses() throws Exception {
         // Read template file
         File resource = new ClassPathResource(templatePath).getFile();
         String template = new String(Files.readAllBytes(resource.toPath()));
@@ -98,21 +96,28 @@ public class FetchExpenses {
         String expenseData = response.getBody();
 
         // Convert expense report CSV to a Java Object
-        List<Report> expenseList = new CsvToBeanBuilder(new StringReader(expenseData)).withType(Report.class).build()
-                .parse();
+        List<Report> expenseList = this.convertCsvToJavaObject(expenseData);
 
         // -------------------------------------------------------------------------------------------------------------
         // 3) Save expenses to the database
 
         // Save each expense to the database
+        this.saveExpenseList(expenseList);
+    }
+
+    private void saveExpenseList(List<Report> expenseList) {
         for (Report expense : expenseList) {
             Expense expenses = this.convertExpenseToDatabaseObject(expense);
             expenseService.saveOrUpdate(expenses);
         }
     }
 
+    private List<Report> convertCsvToJavaObject(String expenseData) {
+        return new CsvToBeanBuilder(new StringReader(expenseData)).withType(Report.class).build().parse();
+    }
+
     private ResponseEntity<String> createExpenseReportAtPartner(String template, String json, String baseUrl)
-            throws URISyntaxException {
+            throws Exception {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
 
@@ -124,8 +129,7 @@ public class FetchExpenses {
         return this.sendPostRequest(headers, requestBody, baseUrl);
     }
 
-    private ResponseEntity<String> downloadExpenseReportFromPartner(String json, String baseUrl)
-            throws URISyntaxException, FileNotFoundException {
+    private ResponseEntity<String> downloadExpenseReportFromPartner(String json, String baseUrl) throws Exception {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
 
@@ -133,22 +137,31 @@ public class FetchExpenses {
         MultiValueMap<String, String> requestBody = new LinkedMultiValueMap<>();
         requestBody.add("requestJobDescription", json);
 
-        ResponseEntity<String> response =  this.sendPostRequest(headers, requestBody, baseUrl);
-
-        return response;
+        return this.sendPostRequest(headers, requestBody, baseUrl);
     }
 
     private ResponseEntity<String> sendPostRequest(HttpHeaders headers, MultiValueMap<String, String> requestBody,
-            String baseUrl) throws URISyntaxException {
+            String baseUrl) throws Exception {
         // POST request to save report
         RestTemplate restTemplate = new RestTemplate();
 
         HttpEntity<MultiValueMap<String, String>> HttpRequest = new HttpEntity<>(requestBody, headers);
         URI uri = new URI(baseUrl);
-        ResponseEntity<String> result = restTemplate.postForEntity(uri, HttpRequest, String.class);
+        ResponseEntity<String> response = restTemplate.postForEntity(uri, HttpRequest, String.class);
 
-        logger.info(result.getBody());
-        return result;
+        if (response.getStatusCodeValue() == 404) {
+            throw new FileNotFoundException("Wrong csv file name provided");
+        } else if (response.getStatusCodeValue() == 403) {
+            throw new AuthenticationException("Wrong authentication params provided");
+        } else if (response.getStatusCodeValue() > 404 && response.getStatusCodeValue() < 500) {
+            throw new Exception("Client error/Incorrect request body");
+        } else if (response.getStatusCodeValue() >= 500) {
+            throw new Exception("Server error");
+        } else {
+            logger.info(response.getBody());
+        }
+
+        return response;
     }
 
     Expense convertExpenseToDatabaseObject(Report expense) {
