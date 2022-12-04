@@ -1,19 +1,22 @@
 package com.expensify.integration.controller;
 
+import com.expensify.integration.exceptions.FileNotFoundException;
 import com.expensify.integration.models.Expense;
-import com.expensify.integration.json.downloadreport.DownloadReport;
+import com.expensify.integration.json.downloadreport.DownloadReportJson;
 import com.expensify.integration.csv.Report;
-import com.expensify.integration.json.savereport.SaveReport;
+import com.expensify.integration.json.savereport.SaveReportJson;
 import com.expensify.integration.services.ExpenseService;
-import com.expensify.integration.helpers.PopulateDownloadReport;
-import com.expensify.integration.helpers.PopulateSaveFile;
+import com.expensify.integration.helpers.PopulateJson;
 import com.expensify.integration.helpers.ToJson;
 import com.opencsv.bean.CsvToBeanBuilder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
@@ -31,6 +34,8 @@ import java.util.List;
 
 @Controller
 public class FetchExpenses {
+    Logger logger = LoggerFactory.getLogger(this.getClass());
+
     @Value("${expensify.baseUrl}")
     private String expensifyBaseUrl;
 
@@ -50,71 +55,99 @@ public class FetchExpenses {
         this.expenseService = expenseService;
     }
 
-    public void getExpenses() throws URISyntaxException, IOException {
+    public void getExpenses() throws URISyntaxException, IOException, FileNotFoundException {
         // Read template file
         File resource = new ClassPathResource(templatePath).getFile();
         String template = new String(Files.readAllBytes(resource.toPath()));
 
-        RestTemplate restTemplate = new RestTemplate();
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+        // -------------------------------------------------------------------------------------------------------------
+        // 1) Generate the report at partner
 
-        // Populate SaveFile POJO with data
-        PopulateSaveFile populateSaveFile = new PopulateSaveFile(partnerUserID, partnerUserSecret);
-        SaveReport saveFileObject = populateSaveFile.populateSaveFile();
+        // Populate SaveReportJson POJO with data
+        PopulateJson populateJson = new PopulateJson(partnerUserID, partnerUserSecret);
+        SaveReportJson saveFileObject = populateJson.populateSaveReport();
 
-        // Convert SaveFile POJO to JSON
-        ToJson<SaveReport> toJson = new ToJson<>();
-        String jsonStr = toJson.toJson(saveFileObject);
+        // Convert SaveReportJson POJO to JSON
+        ToJson<SaveReportJson> convertJavaObjectToJson = new ToJson<>();
+        String saveReportJson = convertJavaObjectToJson.toJson(saveFileObject);
 
-        // Create request body
-        MultiValueMap<String, String> map = new LinkedMultiValueMap<>();
-        map.add("requestJobDescription", jsonStr);
-        map.add("template", template);
+        // Send POST request to create expense report
+        ResponseEntity<String> response = this.createExpenseReportAtPartner(template, saveReportJson, expensifyBaseUrl);
+        String reportFileName = response.getBody();
 
-        // POST request to save report
-        HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<>(map, headers);
-        final String baseUrl = expensifyBaseUrl;
-        URI uri = new URI(baseUrl);
-        ResponseEntity<String> result = restTemplate.postForEntity(uri, request, String.class);
-        System.out.println(result);
+        // -------------------------------------------------------------------------------------------------------------
+        // 2) Download the report from partner
 
-        String fileName = result.getBody();
+        // Populate DownloadReportJson POJO with data
+        PopulateJson populateDownloadReport = new PopulateJson(partnerUserID, partnerUserSecret);
+        DownloadReportJson downloadReportJsonObject = populateDownloadReport.populateDownloadReport(reportFileName);
 
-        PopulateDownloadReport populateDownloadReport = new PopulateDownloadReport(partnerUserID, partnerUserSecret);
-        DownloadReport downloadReportObject = populateDownloadReport.populateDownloadReport(fileName);
+        // Convert DownloadReport POJO to JSON
+        ToJson<DownloadReportJson> convertDownloadReportJavaObjectToJson = new ToJson<>();
+        String downloadReportJson = convertDownloadReportJavaObjectToJson.toJson(downloadReportJsonObject);
 
-        // Convert SaveFile POJO to JSON
-        ToJson<DownloadReport> toJsonDownload = new ToJson<>();
-        String jsonDownloadStr = toJsonDownload.toJson(downloadReportObject);
+        // Send POST request to download expense report
+        response = this.downloadExpenseReportFromPartner(downloadReportJson, expensifyBaseUrl);
 
-        // Create request body
-        MultiValueMap<String, String> downloadBody = new LinkedMultiValueMap<>();
-        downloadBody.add("requestJobDescription", jsonDownloadStr);
+        String expenseData = response.getBody();
 
-        // POST request to download report
-        request = new HttpEntity<>(downloadBody, headers);
-        result = restTemplate.postForEntity(uri, request, String.class);
-        System.out.println(result);
-
-        String expenseData = result.getBody();
-
+        // Convert expense report CSV to a Java Object
         List<Report> expenseList = new CsvToBeanBuilder(new StringReader(expenseData)).withType(Report.class).build()
                 .parse();
 
+        // -------------------------------------------------------------------------------------------------------------
+        // 3) Save expenses to the database
+
+        // Save each expense to the database
         for (Report expense : expenseList) {
             Expense expenses = this.convertExpenseToDatabaseObject(expense);
-            expenseService.save(expenses);
+            expenseService.saveOrUpdate(expenses);
         }
+    }
 
-        System.out.println("Done!");
+    private ResponseEntity<String> createExpenseReportAtPartner(String template, String json, String baseUrl)
+            throws URISyntaxException {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
 
-        List<Expense> expensesFromDb = expenseService.findAll();
+        // Create request body
+        MultiValueMap<String, String> requestBody = new LinkedMultiValueMap<>();
+        requestBody.add("requestJobDescription", json);
+        requestBody.add("template", template);
+
+        return this.sendPostRequest(headers, requestBody, baseUrl);
+    }
+
+    private ResponseEntity<String> downloadExpenseReportFromPartner(String json, String baseUrl)
+            throws URISyntaxException, FileNotFoundException {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+
+        // Create request body
+        MultiValueMap<String, String> requestBody = new LinkedMultiValueMap<>();
+        requestBody.add("requestJobDescription", json);
+
+        ResponseEntity<String> response =  this.sendPostRequest(headers, requestBody, baseUrl);
+
+        return response;
+    }
+
+    private ResponseEntity<String> sendPostRequest(HttpHeaders headers, MultiValueMap<String, String> requestBody,
+            String baseUrl) throws URISyntaxException {
+        // POST request to save report
+        RestTemplate restTemplate = new RestTemplate();
+
+        HttpEntity<MultiValueMap<String, String>> HttpRequest = new HttpEntity<>(requestBody, headers);
+        URI uri = new URI(baseUrl);
+        ResponseEntity<String> result = restTemplate.postForEntity(uri, HttpRequest, String.class);
+
+        logger.info(result.getBody());
+        return result;
     }
 
     Expense convertExpenseToDatabaseObject(Report expense) {
         Expense expenses = new Expense();
-        expenses.setId((long) (Math.random() + expense.getTransactionId()));
+        expenses.setId(expense.getTransactionId());
         expenses.setExpenseNumber(expense.getExpenseNumber());
         expenses.setCategory(expense.getCategory());
         expenses.setCurrency(expense.getCurrency());
@@ -122,7 +155,7 @@ public class FetchExpenses {
         expenses.setMerchant(expense.getMerchant());
         expenses.setInvoiceId(expense.getInvoiceId());
         expenses.setInvoiceUrl(expense.getInvoiceUrl());
-        expenses.setOriginalAmount(expense.getOriginalAmount() / 100);
+        expenses.setAmount(expense.getAmount());
         expenses.setReportNumber(expense.getReportNumber());
         expenses.setTransactionId(expense.getTransactionId());
 

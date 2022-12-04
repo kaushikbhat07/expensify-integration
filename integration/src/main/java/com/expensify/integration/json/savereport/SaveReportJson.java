@@ -5,7 +5,7 @@ import lombok.Data;
 
 @AllArgsConstructor
 @Data
-public class SaveReport {
+public class SaveReportJson {
     String type;
     Credentials credentials;
     OnReceive onReceive;

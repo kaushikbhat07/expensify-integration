@@ -8,8 +8,8 @@ public class Report {
     @CsvBindByName(column = "Merchant")
     private String merchant;
 
-    @CsvBindByName(column = "Original Amount")
-    private double originalAmount;
+    @CsvBindByName(column = "Amount")
+    private double amount;
 
     @CsvBindByName(column = "Category")
     String category;

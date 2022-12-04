@@ -16,7 +16,7 @@ public class Expense {
 
     String merchant;
 
-    double originalAmount;
+    double amount;
 
     String category;
 

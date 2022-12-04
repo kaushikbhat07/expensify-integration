@@ -1,13 +1,24 @@
 <#if addHeader == true>
-    Merchant,Original Amount,Category,Comment,Currency,Invoice ID,Invoice URL,Transaction ID,Report number,Expense number<#lt>
+    Merchant,Amount,Category,Comment,Currency,Invoice ID,Invoice URL,Transaction ID,Report number,Expense number<#lt>
 </#if>
 <#assign reportNumber = 1>
 <#assign expenseNumber = 1>
 <#list reports as report>
     <#list report.transactionList as expense>
-        ${expense.merchant},<#t>
-    <#-- note: expense.amount prints the original amount only -->
-        ${expense.amount},<#t>
+        <#if expense.modifiedMerchant?has_content>
+            <#assign merchant = expense.modifiedMerchant>
+        <#else>
+            <#assign merchant = expense.merchant>
+        </#if>
+        <#if expense.convertedAmount?has_content>
+            <#assign amount = expense.convertedAmount/100>
+        <#elseif expense.modifiedAmount?has_content>
+            <#assign amount = expense.modifiedAmount/100>
+        <#else>
+            <#assign amount = expense.amount/100>
+        </#if>
+        ${merchant},<#t>
+        ${amount},<#t>
         ${expense.category},<#t>
         ${expense.comment},<#t>
         ${expense.currency},<#t>

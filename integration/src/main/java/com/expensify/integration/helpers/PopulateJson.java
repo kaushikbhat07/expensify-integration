@@ -1,26 +1,27 @@
 package com.expensify.integration.helpers;
 
+import com.expensify.integration.json.downloadreport.DownloadReportJson;
 import com.expensify.integration.json.savereport.Credentials;
 import com.expensify.integration.json.savereport.Filters;
 import com.expensify.integration.json.savereport.InputSettings;
 import com.expensify.integration.json.savereport.OnReceive;
 import com.expensify.integration.json.savereport.OutputSettings;
-import com.expensify.integration.json.savereport.SaveReport;
+import com.expensify.integration.json.savereport.SaveReportJson;
 
 import java.util.ArrayList;
 import java.util.Collections;
 
-public class PopulateSaveFile {
+public class PopulateJson {
 
-    private final String partnerUserID;
+    private static String partnerUserID;
 
-    private final String partnerUserSecret;
+    private static String partnerUserSecret;
 
-    public PopulateSaveFile(String partnerUserID, String partnerUserSecret) {
-        this.partnerUserID = partnerUserID;
-        this.partnerUserSecret = partnerUserSecret;
+    public PopulateJson(String partnerUser, String partnerSecret) {
+        partnerUserID = partnerUser;
+        partnerUserSecret = partnerSecret;
     }
-    public SaveReport populateSaveFile() {
+    public SaveReportJson populateSaveReport() {
         Credentials credentials = new Credentials(partnerUserID, partnerUserSecret);
 
         OnReceive onReceive = new OnReceive(new ArrayList<>(Collections.singleton("returnRandomFileName")));
@@ -31,6 +32,13 @@ public class PopulateSaveFile {
 
         OutputSettings outputSettings = new OutputSettings("csv");
 
-        return new SaveReport("file", credentials, onReceive, inputSettings, outputSettings);
+        return new SaveReportJson("file", credentials, onReceive, inputSettings, outputSettings);
+    }
+
+    public DownloadReportJson populateDownloadReport(String fileName) {
+        Credentials credentials = new Credentials(partnerUserID, partnerUserSecret);
+        String type = "download";
+        String fileSystem = "integrationServer";
+        return new DownloadReportJson(type, credentials, fileName, fileSystem);
     }
 }

@@ -6,7 +6,7 @@ import lombok.Data;
 
 @AllArgsConstructor
 @Data
-public class DownloadReport {
+public class DownloadReportJson {
     String type;
     Credentials credentials;
     String fileName;

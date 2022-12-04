@@ -22,6 +22,10 @@ public class ExpenseService {
         return expensesOptional.orElseGet(() -> expenseRepository.save(expenses));
     }
 
+    public Expense saveOrUpdate(Expense expenses) {
+        return expenseRepository.save(expenses);
+    }
+
     public List<Expense> findAll() {
         return expenseRepository.findAll();
     }
