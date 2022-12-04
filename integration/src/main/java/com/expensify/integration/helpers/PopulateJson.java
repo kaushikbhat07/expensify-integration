@@ -21,6 +21,7 @@ public class PopulateJson {
         partnerUserID = partnerUser;
         partnerUserSecret = partnerSecret;
     }
+
     public SaveReportJson populateSaveReport() {
         Credentials credentials = new Credentials(partnerUserID, partnerUserSecret);
 
